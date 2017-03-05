@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.0">
+    <ScriptPackage>
+        <ScriptGroup isActive="yes" isFolder="yes">
+            <name>GUI</name>
+            <packageName></packageName>
+            <script>-------------------------------------------------
+--         Put your Lua functions here.        --
+--                                             --
+-- Note that you can also use external Scripts --
+-------------------------------------------------
+</script>
+            <eventHandlerList/>
+            <Script isActive="yes" isFolder="no">
+                <name>GraphicalUI</name>
+                <packageName></packageName>
+                <script>-------------------------------------------------
+--         Put your Lua functions here.        --
+--                                             --
+-- Note that you can also use external Scripts --
+-------------------------------------------------
+
+  local borders = 15
+  local score_width = 257
+  local inset = 13
+  local title_width = 358
+  local title_height = 75 --actually 105
+
+  local top = title_height
+  local left = inset
+  local right = 2*inset+score_width+borders
+  local bottom = inset
+  
+  doneInit = false
+  local stats = {&quot;STR&quot;, &quot;DEX&quot;, &quot;INT&quot;, &quot;WIT&quot;, &quot;CHA&quot;, &quot;GRT&quot;}
+  local secondary_stats = {&quot;TO_HIT&quot;, &quot;DODGE&quot;, &quot;BLOCK&quot;}
+  local resist_display = &quot;RESIST&quot;
+  local bonus_display = &quot;BONUS-X&quot;
+  local title_window = &quot;title_window&quot;
+  local bg_left = &quot;bg_left&quot;
+  local bg_top = &quot;bg_top&quot;
+  local bg_bottom = &quot;bg_bottom&quot;
+  local bg_right = &quot;bg_right&quot;
+  local score_window = &quot;score&quot;
+  local console_window = &quot;main_console&quot;
+  local char_name = &quot;char_name&quot;
+  local terr_display = &quot;territory&quot;
+  local terr_out_display = &quot;territory_outside&quot;
+  local lv_display = &quot;lv_display&quot;
+  local rank_display = &quot;rank_display&quot;
+  local hp_bar = &quot;hp_bar&quot;
+  local mv_bar = &quot;mv_bar&quot;
+  local mp_bar = &quot;mp_bar&quot;
+  local blood_bar = &quot;blood_bar&quot;
+  local bonus_exp_bar = &quot;bonus_experience_display&quot;
+
+  local skills = {} --Tracks which skill gauges already exist
+
+function setup()
+  echo(&quot;Requesting MSDP data...\n&quot;)
+  sendMSDP(&quot;REPORT&quot;, &quot;CHARACTER_NAME&quot;, &quot;CLASS&quot;, &quot;LEVEL&quot;, &quot;SKILL_LEVEL&quot;, &quot;GEAR_LEVEL&quot;, &quot;CRAFTING_LEVEL&quot;, &quot;BONUS_EXP&quot;, &quot;ROOM&quot;, &quot;AFFECTS&quot;, &quot;COOLDOWNS&quot;, &quot;DOTS&quot;) --name class level exits affects
+  sendMSDP(&quot;REPORT&quot;, &quot;STR&quot;, &quot;INT&quot;, &quot;WIT&quot;, &quot;DEX&quot;, &quot;CHA&quot;, &quot;GRT&quot;, &quot;STR_PERM&quot;, &quot;INT_PERM&quot;, &quot;WIT_PERM&quot;, &quot;DEX_PERM&quot;, &quot;CHA_PERM&quot;, &quot;GRT_PERM&quot;) --6 primary stats
+  sendMSDP(&quot;REPORT&quot;, &quot;TO_HIT&quot;, &quot;DODGE&quot;, &quot;BLOCK&quot;, &quot;RESIST_PHYSICAL&quot;, &quot;RESIST_MAGICAL&quot;, &quot;BONUS_PHYSICAL&quot;, &quot;BONUS_MAGICAL&quot;, &quot;BONUS_HEALING&quot;) --the secondary stats
+  sendMSDP(&quot;REPORT&quot;, &quot;SKILLS&quot;)
+  sendMSDP(&quot;REPORT&quot;, &quot;HEALTH_MAX&quot;, &quot;HEALTH_REGEN&quot;, &quot;HEALTH&quot;, &quot;MANA_MAX&quot;, &quot;MANA_REGEN&quot;, &quot;MANA&quot;, &quot;MOVEMENT_MAX&quot;, &quot;MOVEMENT_REGEN&quot;, &quot;MOVEMENT&quot;, &quot;BLOOD&quot;, &quot;BLOOD_MAX&quot;, &quot;BLOOD_UPKEEP&quot;) --health mana move blood
+  sendMSDP(&quot;REPORT&quot;, &quot;EMPIRE_RANK&quot;, &quot;EMPIRE_NAME&quot;, &quot;EMPIRE_TERRITORY&quot;, &quot;EMPIRE_TERRITORY_MAX&quot;, &quot;EMPIRE_TERRITORY_OUTSIDE&quot;, &quot;EMPIRE_TERRITORY_OUTSIDE_MAX&quot;) --more stuff
+  sendMSDP(&quot;REPORT&quot;, &quot;WORLD_TIME&quot;, &quot;WORLD_SEASON&quot;, &quot;OPPONENT_HEALTH&quot;, &quot;OPPONENT_HEALTH_MAX&quot;, &quot;OPPONENT_LEVEL&quot;, &quot;OPPONENT_NAME&quot;)
+  echo(&quot;Finished requesting MSDP data.\n&quot;)
+end
+
+function getImg(path)
+  local url = getMudletHomeDir()..&quot;/GUI/&quot;..path
+  url = string.gsub(url, &quot;\\&quot;, &quot;/&quot;)
+  return url
+end
+
+function update_image_window(name, x, y, w, h)
+  resizeWindow(name, w, h)
+  moveWindow(name, x,y)
+end
+
+function draw_image_window(name, img)
+  createLabel(name, 0,0,0,0,1)
+  setLabelStyleSheet(name, [[
+	background-image: url(]]..getImg(img)..[[);
+	]])
+  showWindow(name)
+end
+
+function update_text_window(name, text, x, y, w, h)
+  moveWindow(name, x, y)
+  resizeWindow(name, w, h)
+  clearWindow(name)
+  echo(name, text)
+  showWindow(name)
+end
+
+function draw_text_window(name, text)
+  createLabel(name, 0,0,0,0,1)
+  setBackgroundColor(name, 150,100,100,0);
+  echo(name, text)
+end
+
+function update_frame_borders(name, x, y, w, h)
+  update_image_window(name..&quot;_border_l&quot;, x, y, borders, h)
+  update_image_window(name..&quot;_border_t&quot;, x, y, w, borders)
+  update_image_window(name..&quot;_border_r&quot;, x+w-borders, y, borders, h)
+  update_image_window(name..&quot;_border_b&quot;, x, y+h-borders, w, borders)
+  update_image_window(name..&quot;_border_tr&quot;, x+w-borders, y, borders, borders)
+  update_image_window(name..&quot;_border_br&quot;, x+w-borders, y+h-borders, borders, borders)
+end
+
+function draw_frame_borders(name)
+  draw_image_window(name..&quot;_border_l&quot;, [[border_left.png]])
+  draw_image_window(name..&quot;_border_t&quot;, [[border_top.png]])
+  draw_image_window(name..&quot;_border_r&quot;, [[border_right.png]])
+  draw_image_window(name..&quot;_border_b&quot;, [[border_bottom.png]])
+  draw_image_window(name..&quot;_border_tr&quot;, [[corner_tr.png]])
+  draw_image_window(name..&quot;_border_br&quot;, [[corner_br.png]])
+end
+
+function draw_stat(window_name, stat_name)
+  draw_text_window(window_name, stat_name)
+end
+
+function update_stat(window_name, stat_name, x, y, w, h)
+  update_stat(window_name, stat_name, x, y, w, h, false)
+end
+
+function update_stat(window_name, stat_name, x, y, w, h, primary)
+  if msdp[stat_name] == nil or (msdp[stat_name..&quot;_PERM&quot;] == nil and primary) then update_text_window(window_name, fancy, x, y, w, h) return end
+--  moveWindow(window_name, x,y)
+--  resizeWindow(window_name, w,h)
+--  clearWindow(window_name)
+  --TO_HIT -&gt; To-hit
+  local fancy = string.upper(string.sub(stat_name, 1, 1))..string.lower(string.sub(stat_name, 2))
+  fancy = string.gsub(fancy, &quot;_&quot;, &quot;-&quot;)
+  local curr = msdp[stat_name]
+  local color
+  local base
+  if primary then
+    base = msdp[stat_name..&quot;_PERM&quot;]
+    if tonumber(curr)&gt;tonumber(base) then color = [[&quot;green&quot;]] elseif tonumber(curr)&lt;tonumber(base) then color = [[&quot;red&quot;]] else color=[[&quot;white&quot;]] end
+  else
+    color = [[&quot;white&quot;]]
+  end
+  local space = &quot;&quot;
+  --do offsets:
+  local desired_length = 13
+  if primary then desired_length = 8 end
+  while string.len(fancy..&quot;: &quot;..space..curr) &lt; desired_length do space = space..&quot; &quot; end --right-align hack
+  space = string.gsub(space, &quot; &quot;, &quot;&amp;nbsp;&quot;) --required to display spaces with HTML
+
+  local txt = [[&lt;p style=&quot;font-size:15px&quot;&gt;&lt;b&gt;
+  &lt;font color=&quot;gold&quot;&gt;]]..fancy..&quot;:&quot;..[[&lt;/font&gt;
+  &lt;font color=]]..color..[[&gt;]]..space..curr..[[&lt;/font&gt;
+  &lt;/b&gt;&lt;/p&gt;]]
+  update_text_window(window_name, txt, x, y, w, h)
+  --echo(window_name, [[&lt;p style=&quot;font-size:10px&quot;&gt;&lt;b&gt;&lt;font color=&quot;gold&quot;&gt;]]..fancy..&quot;:&quot;..[[&lt;/font&gt;&lt;div style='text-align:right'&gt;&lt;font color=]]..color..[[&gt;]]..curr..[[&lt;/font&gt;&lt;/div&gt;&lt;/b&gt;&lt;/p&gt;]])
+end
+
+function setup_fancy_bar(bar, img)
+  setLabelStyleSheet(bar..&quot;_front&quot;, [[
+	background-image: url(]]..getImg(&quot;&quot;..img)..[[);
+	]])
+  setLabelStyleSheet(bar..&quot;_back&quot;, [[
+	background-image: url(]]..getImg(&quot;&quot;..img..&quot;_empty&quot;)..[[);
+	]])
+end
+
+function initUI()
+  --Just creates windows - updateUI will place them, no need to do it twice
+  setBorderLeft(left+borders)
+  setBorderTop(top+borders)
+  setBorderRight(right+borders)
+  setBorderBottom(bottom+borders)
+  x,y = getMainWindowSize()
+  --Draw background
+  echo(&quot;C&quot;)
+  draw_image_window(bg_left, [[outer_background.png]])
+  draw_image_window(bg_top, [[outer_background.png]])
+  draw_image_window(bg_bottom, [[outer_background.png]])
+  draw_image_window(bg_right, [[outer_background.png]])
+  echo(&quot;r&quot;)
+  --Draw borders + score background
+  draw_frame_borders(console_window)
+  echo(&quot;a&quot;)
+  draw_frame_borders(score_window)
+  echo(&quot;b&quot;)
+  local score_x = x-right+inset+borders
+  local score_y = top+borders
+  local score_w = right-2*inset-2*borders
+  local score_h = y-bottom-top-2*borders
+  draw_image_window(score_window..&quot;_back&quot;, [[inner_background_2.png]])
+  --Draw title (todo: just draw_image_window)
+  createLabel(title_window, 0,0,0,0,0)
+  setBackgroundColor(title_window, 150,100,100,0);
+  setBackgroundImage(title_window, getImg([[Title.png]]))
+  showWindow(title_window)
+
+  echo(&quot; &quot;)
+  --draw score contents
+  draw_text_window(char_name, &quot;Character Name&quot;)
+  draw_text_window(rank_display, &quot;&lt;Nothing of Nowhere&gt;&quot;)
+
+  draw_text_window(lv_display, &quot;Level 0 Adventurer&quot;)
+  --These can't be resized but can be moved - just stack them up in the corner and update them into position
+  createGauge(terr_display, score_w, 5, score_x, score_y, &quot;&quot;, &quot;purple&quot;)
+  setup_fancy_bar(terr_display, &quot;terr&quot;)
+  createGauge(terr_out_display, score_w, 5, score_x, score_y, &quot;&quot;, &quot;white&quot;)
+  setup_fancy_bar(terr_out_display, &quot;terr_out&quot;)
+
+  createGauge(hp_bar, score_w, 20, score_x, score_y, &quot;Health&quot;, &quot;red&quot;)
+  setup_fancy_bar(hp_bar, &quot;health&quot;)
+  createGauge(mp_bar, score_w, 20, score_x, score_y, &quot;Mana&quot;, &quot;blue&quot;)
+  setup_fancy_bar(mp_bar, &quot;mana&quot;)
+  createGauge(mv_bar, score_w, 20, score_x, score_y, &quot;Move&quot;, &quot;green&quot;)
+  setup_fancy_bar(mv_bar, &quot;move&quot;)
+  createGauge(blood_bar, score_w, 20, score_x, score_y, &quot;Blood&quot;, &quot;red&quot;)
+  setup_fancy_bar(blood_bar, &quot;blood&quot;)
+  local text = [[&lt;p style=&quot;font-size:10px&quot;&gt;&lt;b&gt;
+    &lt;font color=&quot;silver&quot;&gt;
+    &lt;center&gt;	Bonus experience&lt;/center&gt;&lt;/font&gt;
+    &lt;/b&gt;&lt;/p&gt;]]
+  createGauge(bonus_exp_bar, score_w, 11, score_x, score_y, text, &quot;cyan&quot;)
+  setup_fancy_bar(bonus_exp_bar, &quot;bonus&quot;)
+  draw_image_window(bonus_exp_bar..&quot;_extra&quot;, [[bonus_extra]])
+  
+  for _,v in ipairs(stats) do
+    draw_stat(v,v)
+  end
+  for _,v in ipairs(secondary_stats) do
+    draw_stat(v,v)
+  end
+  draw_stat(resist_display, resist_display)
+  draw_stat(bonus_display, bonus_display)
+  echo(&quot;test\n&quot;)
+
+  setup() --request MSDP variables from server
+  doneInit = true
+  echo(&quot;Finished initializing GUI elements.\n&quot;)
+  updateUI()
+end
+
+function hideGauge(name) --somehow, this isn't a Mudlet feature
+  hideWindow(name..&quot;_front&quot;)
+  hideWindow(name..&quot;_back&quot;)
+  hideWindow(name..&quot;_text&quot;)
+end
+
+function showGauge(name)
+  showWindow(name..&quot;_front&quot;)
+  showWindow(name..&quot;_back&quot;)
+  showWindow(name..&quot;_text&quot;)
+end
+
+function updateUI()
+  if not doneInit then doneInit = true initUI() return end --we'll call this again from initUI anyway
+  x,y = getMainWindowSize()
+  --local min_y = (title_height+insets*2+border*2+20)
+  --if y&lt;min_y then setMainWindowSize(x, min_y) y=min_y end
+  update_image_window(title_window, x/2-title_width/2, 0, title_width, title_height)
+  update_image_window(bg_left, 0, 0, left, y)
+  update_image_window(bg_top, 0, 0, x, top)
+  update_image_window(bg_bottom, 0, y-bottom, x, bottom)
+  update_image_window(bg_right, x-right, 0, right, y)
+  update_frame_borders(score_window, x-right+inset, top, right-2*inset, y-top-bottom)
+  update_frame_borders(console_window, left, top, x-right-left, y-top-bottom)
+  local score_x = x-right+inset+borders
+  local score_y = top+borders
+  local score_w = right-2*inset-2*borders
+  local score_h = y-bottom-top-2*borders
+  local offset_y = 0
+  update_image_window(score_window..&quot;_back&quot;, score_x, score_y, score_w, score_h)
+
+  if msdp[&quot;CHARACTER_NAME&quot;] ~= nil then
+    update_text_window(char_name, [[&lt;p style=&quot;font-size:20px&quot;&gt;&lt;b&gt;&lt;center&gt;&lt;font color=&quot;gold&quot;&gt;]]..msdp[&quot;CHARACTER_NAME&quot;]..[[&lt;/font&gt;&lt;/center&gt;&lt;/b&gt;&lt;/p&gt;]], score_x, score_y, score_w, 20)
+  else
+    hideWindow(char_name)
+  end
+  offset_y = offset_y + 20
+
+  if msdp[&quot;EMPIRE_RANK&quot;] ~= nil and msdp[&quot;EMPIRE_NAME&quot;] ~= nil then
+    update_text_window(rank_display, [[&lt;p style=&quot;font-size:10px&quot;&gt;&lt;b&gt;&lt;center&gt;&lt;font color=&quot;silver&quot;&gt;&amp;lt;]]..msdp[&quot;EMPIRE_RANK&quot;]..&quot; of &quot;..msdp[&quot;EMPIRE_NAME&quot;]..[[&amp;gt;&lt;/font&gt;&lt;/center&gt;&lt;/b&gt;&lt;/p&gt;]], score_x, score_y+offset_y, score_w, 10)
+  else
+    hideWindow(rank_display)
+  end
+  offset_y = offset_y + 10
+
+  if msdp[&quot;EMPIRE_TERRITORY&quot;] ~= nil and msdp[&quot;EMPIRE_TERRITORY_MAX&quot;] ~= nil then
+    setGauge(terr_display, msdp[&quot;EMPIRE_TERRITORY&quot;], msdp[&quot;EMPIRE_TERRITORY_MAX&quot;])
+  end
+  moveGauge(terr_display, score_x, score_y+offset_y)
+  offset_y = offset_y + 5
+  if msdp[&quot;EMPIRE_TERRITORY_OUTSIDE&quot;] ~= nil and msdp[&quot;EMPIRE_TERRITORY_OUTSIDE_MAX&quot;] ~= nil then
+    setGauge(terr_out_display, msdp[&quot;EMPIRE_TERRITORY_OUTSIDE&quot;], msdp[&quot;EMPIRE_TERRITORY_OUTSIDE_MAX&quot;])
+  end
+  moveGauge(terr_out_display, score_x, score_y+offset_y)
+  offset_y = offset_y + 5
+
+  if msdp[&quot;LEVEL&quot;] ~= nil and msdp[&quot;CLASS&quot;] ~= nil then 
+    update_text_window(lv_display, [[&lt;p style=&quot;font-size:15px&quot;&gt;&lt;b&gt;&lt;center&gt;&lt;font color=&quot;gold&quot;&gt; Level ]]..msdp[&quot;LEVEL&quot;]..&quot; &quot;..msdp[&quot;CLASS&quot;]..[[&lt;/font&gt;&lt;/center&gt;&lt;/b&gt;&lt;/p&gt;]], score_x, score_y+offset_y, score_w, 20)
+  else
+    hideWindow(lv_display)
+  end
+  offset_y = offset_y + 20
+
+  if msdp[&quot;HEALTH&quot;] ~= nil and msdp[&quot;HEALTH_MAX&quot;] ~= nil then
+    setGauge(hp_bar, msdp[&quot;HEALTH&quot;], msdp[&quot;HEALTH_MAX&quot;])
+    local text = [[&lt;p style=&quot;font-size:14px&quot;&gt;&lt;b&gt;
+      &lt;font color=&quot;gold&quot;&gt;
+      &lt;center&gt;]]..msdp[&quot;HEALTH&quot;]..&quot;/&quot;..msdp[&quot;HEALTH_MAX&quot;]..[[&lt;/center&gt;&lt;/font&gt;
+      &lt;/b&gt;&lt;/p&gt;]]
+    clearWindow(hp_bar..&quot;_text&quot;)
+    echo(hp_bar..&quot;_text&quot;, text)
+  end
+  moveGauge(hp_bar, score_x, score_y+offset_y)
+  offset_y = offset_y + 20
+
+  if msdp[&quot;MANA&quot;] ~= nil and msdp[&quot;MANA_MAX&quot;] ~= nil then
+    setGauge(mp_bar, msdp[&quot;MANA&quot;], msdp[&quot;MANA_MAX&quot;])
+    local text = [[&lt;p style=&quot;font-size:14px&quot;&gt;&lt;b&gt;
+      &lt;font color=&quot;gold&quot;&gt;
+      &lt;center&gt;]]..msdp[&quot;MANA&quot;]..&quot;/&quot;..msdp[&quot;MANA_MAX&quot;]..[[&lt;/center&gt;&lt;/font&gt;
+      &lt;/b&gt;&lt;/p&gt;]]
+    clearWindow(mp_bar..&quot;_text&quot;)
+    echo(mp_bar..&quot;_text&quot;, text)
+  end
+  moveGauge(mp_bar, score_x, score_y+offset_y)
+  offset_y = offset_y + 20
+
+  if msdp[&quot;MOVEMENT&quot;] ~= nil and msdp[&quot;MOVEMENT_MAX&quot;] ~= nil then
+    setGauge(mv_bar, msdp[&quot;MOVEMENT&quot;], msdp[&quot;MOVEMENT_MAX&quot;])
+    local text = [[&lt;p style=&quot;font-size:14px&quot;&gt;&lt;b&gt;
+      &lt;font color=&quot;gold&quot;&gt;
+      &lt;center&gt;]]..msdp[&quot;MOVEMENT&quot;]..&quot;/&quot;..msdp[&quot;MOVEMENT_MAX&quot;]..[[&lt;/center&gt;&lt;/font&gt;
+      &lt;/b&gt;&lt;/p&gt;]]
+    clearWindow(mv_bar..&quot;_text&quot;)
+    echo(mv_bar..&quot;_text&quot;, text)
+  end
+  moveGauge(mv_bar, score_x, score_y+offset_y)
+  offset_y = offset_y + 20
+
+  --Blood bar:
+--  echo(msdp[&quot;SKILLS&quot;][&quot;VAMPIRE&quot;][&quot;LEVEL&quot;]..&quot;\n&quot;)
+  moveGauge(blood_bar, score_x, score_y+offset_y)
+  local show_blood = false
+  if msdp[&quot;SKILLS&quot;] ~= nil then
+    if msdp[&quot;SKILLS&quot;][&quot;Vampire&quot;] ~= nil then
+      if msdp[&quot;SKILLS&quot;][&quot;Vampire&quot;][&quot;LEVEL&quot;] ~= nil then
+        if tonumber(msdp[&quot;SKILLS&quot;][&quot;Vampire&quot;][&quot;LEVEL&quot;]) &gt; 0 then
+          show_blood = true
+        end
+      end
+    end
+  end
+  if msdp[&quot;BLOOD&quot;] ~= nil and msdp[&quot;BLOOD_MAX&quot;] ~= nil and show_blood then
+    setGauge(blood_bar, msdp[&quot;BLOOD&quot;], msdp[&quot;BLOOD_MAX&quot;])
+    offset_y = offset_y + 20
+    local text = [[&lt;p style=&quot;font-size:14px&quot;&gt;&lt;b&gt;
+      &lt;font color=&quot;gold&quot;&gt;
+      &lt;center&gt;]]..msdp[&quot;BLOOD&quot;]..&quot;/&quot;..msdp[&quot;BLOOD_MAX&quot;]..[[&lt;/center&gt;&lt;/font&gt;
+      &lt;/b&gt;&lt;/p&gt;]]
+    clearWindow(blood_bar..&quot;_text&quot;)
+    echo(blood_bar..&quot;_text&quot;, text)
+    showGauge(blood_bar)
+  else
+    hideGauge(blood_bar)
+  end
+
+  --Secondary stats
+  local offset_y_column_2 = offset_y
+  for _,v in ipairs(secondary_stats) do
+    update_stat(v, v, score_x+score_w/2, score_y+offset_y_column_2, score_w/2, 15, false)
+    offset_y_column_2 = offset_y_column_2 + 20
+  end
+  if msdp[&quot;RESIST_PHYSICAL&quot;] ~= nil and msdp[&quot;RESIST_MAGICAL&quot;] ~= nil then
+    local str = msdp[&quot;RESIST_PHYSICAL&quot;]..&quot;|&quot;..msdp[&quot;RESIST_MAGICAL&quot;]
+    local space = &quot;&quot;
+    local desired_length = 13
+    while string.len(&quot;Resist: &quot;..space..str) &lt; desired_length do space = space..&quot; &quot; end --right-align hack
+    space = string.gsub(space, &quot; &quot;, &quot;&amp;nbsp;&quot;) --required to display spaces with HTML
+    local text = [[&lt;p style=&quot;font-size:15px&quot;&gt;&lt;b&gt;
+  &lt;font color=&quot;gold&quot;&gt;Resist:&lt;/font&gt;
+  &lt;font color=&quot;white&quot;&gt;]]..space..str..[[&lt;/font&gt;
+  &lt;/b&gt;&lt;/p&gt;]]
+    update_text_window(resist_display, text, score_x+score_w/2, score_y+offset_y_column_2, score_w/2, 15)
+  else
+    hideWindow(resist_display)
+  end
+  offset_y_column_2 = offset_y_column_2 + 20
+  if msdp[&quot;BONUS_PHYSICAL&quot;] ~= nil and msdp[&quot;BONUS_MAGICAL&quot;] ~= nil and msdp[&quot;BONUS_HEALING&quot;] ~= nil then
+    local a = msdp[&quot;BONUS_PHYSICAL&quot;]
+    local b = msdp[&quot;BONUS_MAGICAL&quot;]
+    local c = msdp[&quot;BONUS_HEALING&quot;]
+    local spa = &quot;&quot;
+    local spb = &quot;&quot;
+    local spc = &quot;&quot;
+    a = a..&quot;  &quot;
+    b = b..&quot;  &quot;
+    c = c..&quot;  &quot;
+    while string.len(a..spa)&lt;5 do spa=spa..&quot; &quot; end
+    while string.len(b..spb)&lt;5 do spb=spb..&quot; &quot; end
+    while string.len(c..spc)&lt;5 do spc=spc..&quot; &quot; end
+    local str = spa..a..spb..b..spc..c
+    str = string.gsub(str, &quot; &quot;, &quot;&amp;nbsp;&quot;)
+  
+    local text = [[&lt;p style=&quot;font-size:14px&quot;&gt;&lt;b&gt;
+  &lt;font color=&quot;gold&quot;&gt;Phy: Mag: Hea:&lt;/font&gt;&lt;br&gt;
+  &lt;font color=&quot;white&quot;&gt;]]..str..[[&lt;/font&gt;
+  &lt;/b&gt;&lt;/p&gt;]]
+    update_text_window(bonus_display, text, score_x+score_w/2, score_y+offset_y_column_2, score_w/2, 40)
+  else
+    hideWindow(bonus_display)
+  end
+   --Primary stats
+  for _,v in ipairs(stats) do
+    update_stat(v, v, score_x, score_y+offset_y, score_w, 15, true)
+    offset_y = offset_y + 20
+  end
+  offset_y = offset_y + 5
+  --bonus exp gauge
+  if msdp[&quot;BONUS_EXP&quot;] ~= nil then
+    if tonumber(msdp[&quot;BONUS_EXP&quot;])&gt;0 then
+      moveGauge(bonus_exp_bar, score_x, score_y+offset_y)
+      setGauge(bonus_exp_bar, math.min(tonumber(msdp[&quot;BONUS_EXP&quot;]), 15), 15)
+      showGauge(bonus_exp_bar)
+      if tonumber(msdp[&quot;BONUS_EXP&quot;])&gt;15 then
+        moveWindow(bonus_exp_bar..&quot;_extra&quot;, score_x, score_y+offset_y)
+        showWindow(bonus_exp_bar..&quot;_extra&quot;)
+        resizeWindow(bonus_exp_bar..&quot;_extra&quot;, math.ceil(score_w*(msdp[&quot;BONUS_EXP&quot;]-15)/15), 11)
+      else
+        hideWindow(bonus_exp_bar..&quot;_extra&quot;)
+      end
+      offset_y = offset_y + 11
+    else
+      hideGauge(bonus_exp_bar)
+      hideWindow(bonus_exp_bar..&quot;_extra&quot;)
+    end
+  else
+    hideGauge(bonus_exp_bar)
+    hideWindow(bonus_exp_bar..&quot;_extra&quot;)
+  end
+
+  --skill gauges
+  if msdp[&quot;SKILLS&quot;] ~= nil then
+    for k,v in pairs(msdp[&quot;SKILLS&quot;]) do
+      if not skills[k] then
+        skills[k] = true
+        createGauge(k, score_w, 15	, score_x, score_y + offset_y, k, &quot;yellow&quot;)
+        setup_fancy_bar(k, &quot;skill&quot;)
+        showGauge(k)
+      end
+      moveGauge(k, score_x, score_y + offset_y)
+      setGauge(k, v[&quot;EXP&quot;], 100)
+      clearWindow(k..&quot;_text&quot;)
+      local space = &quot;&quot;
+      for _=1, 3-string.len(v[&quot;LEVEL&quot;]) do
+        space = space..&quot;&amp;nbsp;&quot;
+      end
+      local text = [[&lt;p style=&quot;font-size:10px&quot;&gt;&lt;b&gt;
+        &lt;font color=&quot;gold&quot;&gt;&amp;nbsp;]]..space..v[&quot;LEVEL&quot;]..&quot; &quot;..k..[[&lt;/font&gt;
+        &lt;/b&gt;&lt;/p&gt;]]
+      echo(k..&quot;_text&quot;, text)
+      offset_y = offset_y + 15
+    end
+  end
+  --hide old skill gauges
+  for k,_ in pairs(skills) do
+    if msdp[&quot;SKILLS&quot;][k] == nil then
+      hideGauge(k)
+      skills[k] = false
+    end
+  end
+end
+
+registerAnonymousEventHandler(&quot;sysWindowResizeEvent&quot;, &quot;updateUI&quot;)</script>
+                <eventHandlerList/>
+            </Script>
+        </ScriptGroup>
+    </ScriptPackage>
+</MudletPackage>

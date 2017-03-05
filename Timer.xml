@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.0">
+    <TimerPackage>
+        <TimerGroup isActive="yes" isFolder="yes" isTempTimer="no" isOffsetTimer="no">
+            <name>GUI</name>
+            <script></script>
+            <command></command>
+            <packageName></packageName>
+            <time>00:00:01.000</time>
+            <Timer isActive="yes" isFolder="no" isTempTimer="no" isOffsetTimer="no">
+                <name>UI Updater</name>
+                <script>updateUI()</script>
+                <command></command>
+                <packageName></packageName>
+                <time>00:00:01.000</time>
+            </Timer>
+        </TimerGroup>
+    </TimerPackage>
+</MudletPackage>
